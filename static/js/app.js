@@ -26,6 +26,28 @@
     return data;
   }
 
+  // Flask backend. The GitHub Pages build sets window.IDS_STATIC and uses
+  // LocalBackend (static/js/engine.js) instead, which has the same methods.
+  const ApiBackend = {
+    health: () => api("/api/health"),
+    model: () => api("/api/model"),
+    featureList: () => api("/api/features"),
+    sampleFlows: () => api("/api/samples"),
+    predict: (features, label) => api("/api/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ features, label }),
+    }),
+    predictCsv: (file) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return api("/api/predict/csv", { method: "POST", body: fd });
+    },
+    history: () => api("/api/history"),
+    clearHistory: () => api("/api/history", { method: "DELETE" }),
+  };
+  let backend = ApiBackend;
+
   // ---------------- tabs ----------------
   $$(".tab").forEach((tab) => tab.addEventListener("click", () => {
     $$(".tab").forEach((t) => t.classList.toggle("is-active", t === tab));
@@ -117,11 +139,7 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Analysing…';
     try {
-      const r = await api("/api/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ features: values, label: currentLabel || "Custom flow" }),
-      });
+      const r = await backend.predict(values, currentLabel || "Custom flow");
       renderVerdict(r);
       refreshHistory();
     } catch (err) {
@@ -174,7 +192,7 @@
   // ---------------- history ----------------
   async function refreshHistory() {
     try {
-      const { stats, history } = await api("/api/history");
+      const { stats, history } = await backend.history();
       const total = stats.total || 0, attack = stats.attack || 0;
       $("#st-total").textContent = fmt(total);
       $("#st-attack").textContent = fmt(attack);
@@ -191,7 +209,7 @@
   }
 
   $("#btn-clear-history").addEventListener("click", async () => {
-    await api("/api/history", { method: "DELETE" });
+    await backend.clearHistory();
     refreshHistory();
   });
 
@@ -207,10 +225,8 @@
     const out = $("#batch-out");
     $("#drop-name").textContent = `${file.name} · ${(file.size / 1024).toFixed(1)} KB`;
     out.innerHTML = '<p class="muted" style="margin-top:16px">Analysing flows…</p>';
-    const fd = new FormData();
-    fd.append("file", file);
     try {
-      const data = await api("/api/predict/csv", { method: "POST", body: fd });
+      const data = await backend.predictCsv(file);
       renderBatch(data);
       refreshHistory();
     } catch (err) {
@@ -303,8 +319,9 @@
   async function init() {
     const status = $("#status");
     try {
+      if (window.IDS_STATIC) backend = await window.LocalBackend.load(window.IDS_STATIC.model);
       const [health, feats, samples, info] = await Promise.all([
-        api("/api/health"), api("/api/features"), api("/api/samples"), api("/api/model"),
+        backend.health(), backend.featureList(), backend.sampleFlows(), backend.model(),
       ]);
       FEATURES = feats.features;
       SAMPLES = samples;
@@ -313,11 +330,13 @@
       renderModel(info);
       refreshHistory();
       status.className = "status status--ok";
-      $("#status-text").textContent = `Model online · ${health.n_features} features`;
+      $("#status-text").textContent = window.IDS_STATIC
+        ? `Model running in browser · ${health.n_features} features`
+        : `Model online · ${health.n_features} features`;
     } catch (err) {
       status.className = "status status--err";
-      $("#status-text").textContent = "Backend unavailable";
-      showVerdictError(`Could not reach the API: ${err.message}`);
+      $("#status-text").textContent = "Model unavailable";
+      showVerdictError(`Could not load the model: ${err.message}`);
     }
   }
 

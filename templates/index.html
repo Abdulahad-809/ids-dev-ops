@@ -110,8 +110,13 @@
     </section>
   </main>
 
-  <footer class="foot">Sentinel IDS · DevOps Lab · Random Forest on CICIDS 2017</footer>
+  <footer class="foot">Sentinel IDS · DevOps Lab · Random Forest on CICIDS 2017{% if static_build %} · static build {{ build_sha }}{% endif %}</footer>
 
+  {% if static_build %}
+  <!-- GitHub Pages build: no server, the model runs in the browser. -->
+  <script>window.IDS_STATIC = { model: "static/model.json" };</script>
+  <script src="{{ url_for('static', filename='js/engine.js') }}"></script>
+  {% endif %}
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

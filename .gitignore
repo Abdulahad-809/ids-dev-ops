@@ -31,3 +31,6 @@ combine.csv
 
 # Local Claude Code preview config
 .claude/
+
+# GitHub Pages build output (built in CI)
+site/

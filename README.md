@@ -50,15 +50,19 @@ Test set: 442,406 flows. Results are also saved in [output/model_results.csv](ou
 ├── utils.py                       Small tested helpers (cleaning, labels, metrics, risk)
 ├── ids/
 │   ├── model.py                   Model loading, preprocessing, prediction
+│   ├── export.py                  Exports the forest to JSON for the browser
 │   └── samples.py                 Example flows for the dashboard
 ├── model/cicids_intrusion_model.pkl   Trained Random Forest from the notebook
 ├── notebooks/Intrusion_Detection_System.ipynb   Training notebook (Colab)
 ├── templates/index.html           Dashboard page
 ├── static/                        CSS, JS, sample_flows.csv
 ├── scripts/make_sample_csv.py     Regenerates static/sample_flows.csv
+├── scripts/build_pages.py         Builds the static GitHub Pages site into site/
 ├── output/model_results.csv       Recorded model metrics
 ├── tests/                         unittest suite (utils + API)
-└── .github/workflows/python-test.yml   GitHub Actions CI
+└── .github/workflows/
+    ├── python-test.yml            CI: unit tests on push / PR
+    └── deploy-pages.yml           CD: publish frontend to GitHub Pages after CI passes
 ```
 
 ## How to Run
@@ -105,11 +109,35 @@ python -m unittest discover -s tests -v
 ```
 GitHub Actions runs the same command on every push and pull request to `main`. It does not retrain the model.
 
+## Live demo on GitHub Pages (CD)
+**<https://abdulahad-809.github.io/ids-dev-ops/>**
+
+GitHub Pages only hosts static files and cannot run Flask. For the Pages version,
+`scripts/build_pages.py` exports the Random Forest's 20 trees to `static/model.json`,
+and `static/js/engine.js` runs them in the browser. Single-flow analysis, CSV upload and metrics
+all work with no server. `tests/test_export.py` checks that the exported model gives exactly
+the same probabilities as the `.pkl`.
+
+Pipeline:
+```
+push to main ──► Python CI (python-test.yml: unit tests)
+                     │ passed
+                     ▼
+               Deploy to GitHub Pages (deploy-pages.yml: build site/ ──► publish)
+```
+If the tests fail, nothing is deployed. To preview the Pages build locally:
+```bash
+python scripts/build_pages.py
+python -m http.server 8000 -d site
+```
+
+One-time setup: in the repository, go to **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
+
 ## Limitations
 - Binary detection only: it does not name the attack type.
 - Recall is 0.83, so roughly 1 in 6 attack flows in the test set were missed.
 - The example flows in the dashboard are synthetic, shaped after CICIDS traffic patterns, and are for demonstration.
-- Detection statistics are kept in memory and reset when the server restarts.
+- Detection statistics are kept in memory and reset when the server restarts (on Pages, when the page reloads).
 
 ## Contributors
 - Original author: Abdulahad-809
