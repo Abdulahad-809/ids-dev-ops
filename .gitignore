@@ -1,0 +1,33 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets and local settings
+.env
+*.token
+secrets.json
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary notebook checkpoints
+.ipynb_checkpoints/
+
+# Temporary logs
+*.log
+
+# The CICIDS 2017 dataset is large (~170 MB); download it instead of committing it
+dataset/
+*.zip
+combine.csv
+
+# Local Claude Code preview config
+.claude/

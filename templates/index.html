@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sentinel IDS · CICIDS 2017</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" class="logo" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8.5 12 2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <div>
+        <h1>Sentinel IDS</h1>
+        <p>Network intrusion detection · trained on CICIDS 2017</p>
+      </div>
+    </div>
+    <div id="status" class="status status--loading"><span class="dot"></span><span id="status-text">Connecting…</span></div>
+  </header>
+
+  <main class="wrap">
+    <!-- Stats -->
+    <section class="stats">
+      <div class="stat"><span class="stat__label">Flows analysed</span><span class="stat__value" id="st-total">0</span></div>
+      <div class="stat stat--danger"><span class="stat__label">Attacks detected</span><span class="stat__value" id="st-attack">0</span></div>
+      <div class="stat stat--ok"><span class="stat__label">Benign</span><span class="stat__value" id="st-benign">0</span></div>
+      <div class="stat"><span class="stat__label">Attack rate</span><span class="stat__value" id="st-rate">0%</span></div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" data-tab="single" role="tab">Analyse a flow</button>
+      <button class="tab" data-tab="batch" role="tab">Batch CSV</button>
+      <button class="tab" data-tab="model" role="tab">Model</button>
+    </nav>
+
+    <!-- Single flow -->
+    <section class="panel-grid" data-panel="single">
+      <div class="card">
+        <div class="card__head">
+          <h2>Flow features</h2>
+          <button class="btn btn--ghost btn--sm" id="btn-reset">Clear</button>
+        </div>
+        <p class="muted">Load an example flow or enter CICFlowMeter values. Fields you leave blank are treated as 0.</p>
+        <div class="presets" id="presets"></div>
+
+        <form id="flow-form" autocomplete="off">
+          <h3 class="subhead">Most influential features</h3>
+          <div class="fields" id="key-fields"></div>
+          <details class="all-fields">
+            <summary>All 77 features <span class="muted" id="filled-count"></span></summary>
+            <input type="search" id="feature-filter" class="input" placeholder="Filter features…">
+            <div class="fields fields--dense" id="all-fields"></div>
+          </details>
+          <button type="submit" class="btn btn--primary btn--block" id="btn-analyse">Analyse flow</button>
+        </form>
+      </div>
+
+      <div class="col">
+        <div class="card verdict" id="verdict">
+          <div class="verdict__empty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <p>Run an analysis to see the verdict.</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card__head">
+            <h2>Recent activity</h2>
+            <button class="btn btn--ghost btn--sm" id="btn-clear-history">Reset</button>
+          </div>
+          <ul class="log" id="log"><li class="muted">No detections yet.</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Batch -->
+    <section class="panel-grid panel-grid--full" data-panel="batch" hidden>
+      <div class="card">
+        <div class="card__head">
+          <h2>Batch analysis</h2>
+          <a class="btn btn--ghost btn--sm" href="{{ url_for('static', filename='sample_flows.csv') }}" download>Download sample CSV</a>
+        </div>
+        <p class="muted">Upload a CICIDS 2017 / CICFlowMeter CSV. Column names are trimmed, infinite and missing values are rejected per row, and <code>Destination Port</code> is ignored, just like in training. If a <code>Label</code> column is present, accuracy, precision, recall and F1 are calculated against it.</p>
+        <label class="drop" id="drop">
+          <input type="file" id="csv-input" accept=".csv" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span><strong>Drop a CSV here</strong> or click to choose</span>
+          <span class="muted" id="drop-name"></span>
+        </label>
+        <div id="batch-out"></div>
+      </div>
+    </section>
+
+    <!-- Model -->
+    <section class="panel-grid" data-panel="model" hidden>
+      <div class="card">
+        <h2>Deployed model</h2>
+        <dl class="kv" id="model-kv"></dl>
+        <h3 class="subhead">Notebook test-set results</h3>
+        <p class="muted">80/20 stratified split, random_state=42, 442,406 test flows. The model with the higher F1 is deployed.</p>
+        <div class="table-wrap"><table class="table" id="results-table"></table></div>
+      </div>
+      <div class="card">
+        <h2>Top feature importances</h2>
+        <div id="importance"></div>
+        <h3 class="subhead">About the dataset</h3>
+        <p class="muted">CICIDS 2017 was published by the Canadian Institute for Cybersecurity (University of New Brunswick). It contains five days of labelled traffic with benign activity and attacks such as DoS/DDoS, PortScan, brute force, botnet, infiltration and Heartbleed, captured as 78 CICFlowMeter flow features. Here, every attack class is merged into a single <em>ATTACK</em> label.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Sentinel IDS · DevOps Lab · Random Forest on CICIDS 2017</footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
